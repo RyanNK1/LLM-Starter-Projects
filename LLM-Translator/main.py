@@ -44,7 +44,14 @@ def translate_text(language, text):
 
 # Main execution
 if __name__ == "__main__":
-    language = "Italian"
-    text = "Ryan Kimani is Super Man! I wanna take him on a date?"
-    translation = translate_text(language, text)
-    print("\nTranslation:\n", translation)
+    print("Welcome to the English Language Translator")
+    language = input('Enter target language:').strip()
+    text = input("Enter English text to translate: ").strip()
+
+    #Error Handling
+
+    try:
+        translation = translate_text(language, text)
+        print("\nTranslation:\n", translation)
+    except Exception as e:
+        print(f"\n Translation Failed: {e}")
