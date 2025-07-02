@@ -13,17 +13,17 @@ OpenAI.api_key = os.getenv("OPENROUTER_API_KEY")
 
 # Prompt template
 PROMPT_TEMPLATE = """
-Translate the following text from English into {language}:
+Translate the following text from {input_language} into {target_language}:
 {text}
 """
 
 # Step 1: Create prompt
-def create_prompt(language, text):
-    return PROMPT_TEMPLATE.format(language=language, text=text)
+def create_prompt(input_language, target_language, text):
+    return PROMPT_TEMPLATE.format(input_language=input_language,target_language=target_language, text=text)
 
 # Step 2: Translate
-def translate_text(language, text):
-    prompt = create_prompt(language, text)
+def translate_text(input_language, target_language, text):
+    prompt = create_prompt(input_language, target_language, text)
 
     client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY"),
@@ -45,13 +45,14 @@ def translate_text(language, text):
 # Main execution
 if __name__ == "__main__":
     print("Welcome to the English Language Translator")
-    language = input('Enter target language:').strip()
-    text = input("Enter English text to translate: ").strip()
+    target_language = input('Enter target language:').strip()
+    input_language = input('Enter the input language:').strip()
+    text = input(f"Enter {input_language} text to translate: ").strip()
 
     #Error Handling
 
     try:
-        translation = translate_text(language, text)
+        translation = translate_text(input_language, target_language, text)
         print("\nTranslation:\n", translation)
     except Exception as e:
         print(f"\n Translation Failed: {e}")
