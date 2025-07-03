@@ -1,5 +1,3 @@
-Part 6: Managing Coversation History
-Part 7: Streaming Responses
 ## 🧩 Part 1: Basic Chat Model Invocation
 
 ### 🧠 Concept Overview
@@ -696,6 +694,241 @@ By the end of Part 5, I had:
 - A multilingual chatbot that responds in the user’s preferred language.
 - A flexible prompt system with dynamic inputs.
 - A structured state schema that supports both messages and metadata.
+
+---
+
+Perfect! Here's the documentation for **Part 6: Managing Conversation History** and **Part 7: Streaming Responses**, continuing in the same style as your previous entries:
+
+---
+
+## 🧩 Part 6: Managing Conversation History
+
+### 🧠 Concept Overview
+
+In this part, I focused on **trimming and managing conversation history** to ensure the chatbot remains efficient and responsive, especially when dealing with long conversations. Since language models have token limits, it's important to control how much of the message history is passed to the model.
+
+I used LangChain’s `trim_messages` utility to selectively reduce the message history based on token count. This ensures that the most relevant parts of the conversation are retained while staying within model limits.
+
+---
+
+### 📚 Key Terms Explained
+
+- **Token Limit**: The maximum number of tokens (words, punctuation, etc.) a model can process in a single prompt.
+- **trim_messages**: A LangChain utility that trims message history based on token count and strategy.
+- **Custom Token Counter**: A function that estimates token usage using a tokenizer from Hugging Face.
+
+---
+
+### 📄 Code Breakdown (Line-by-Line)
+
+```python
+from langchain_core.messages import trim_messages
+```
+I imported the `trim_messages` utility to manage message history.
+
+---
+
+```python
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
+```
+I used a Hugging Face tokenizer to estimate token usage since the default token counter had issues with OpenRouter.
+
+---
+
+```python
+def count_tokens(messages: Sequence[BaseMessage]) -> int:
+    text = "\n".join([msg.content for msg in messages])
+    return len(tokenizer.encode(text))
+```
+This function counts tokens by encoding the concatenated message contents.
+
+---
+
+```python
+trimmer = trim_messages(
+    max_tokens=100,
+    strategy="last",
+    token_counter=count_tokens,
+    include_system=True,
+    allow_partial=False,
+    start_on="human",
+)
+```
+I configured the trimmer to:
+- Keep the last messages.
+- Include system messages.
+- Start trimming from the last human message.
+- Avoid partial messages.
+
+---
+
+```python
+trimmed_messages = trimmer.invoke(state["messages"])
+```
+Before sending messages to the model, I trimmed them to stay within the token limit.
+
+---
+
+### ✅ Outcome
+
+By the end of Part 6, I had:
+- A reliable way to manage long conversations.
+- A custom token counter for OpenRouter compatibility.
+- A trimmed message history that preserves context without exceeding limits.
+
+---
+
+## 🧩 Part 7: Streaming Responses
+
+### 🧠 Concept Overview
+
+In this part, I implemented **streaming responses** to make the chatbot feel more interactive and real-time. Instead of waiting for the entire response to be generated, the assistant now streams its reply chunk-by-chunk as it's being generated.
+
+This improves user experience by reducing perceived latency and mimicking natural conversation flow.
+
+---
+
+### 📚 Key Terms Explained
+
+- **Streaming**: Receiving and displaying model output incrementally as it's generated.
+- **stream()**: A method that returns an iterator over response chunks from the model.
+- **flush=True**: Ensures immediate printing of each chunk without buffering.
+
+---
+
+### 📄 Code Breakdown (Line-by-Line)
+
+```python
+stream = model.stream(prompt)
+collected_chunks = []
+print("Assistant:", end=" ", flush=True)
+for chunk in stream:
+    print(chunk.content, end="", flush=True)
+    collected_chunks.append(chunk)
+print()
+```
+This block:
+- Starts streaming the model response.
+- Prints each chunk as it arrives.
+- Collects the final chunk to store in memory.
+
+---
+
+```python
+for step in app.stream({"messages": input_messages, "language": language}, config):
+    pass  # Streaming handled in call_model
+```
+I used `app.stream()` to invoke the graph and handle streaming inside the `call_model` function.
+
+---
+
+### ✅ Outcome
+
+By the end of Part 7, I had:
+- A chatbot that streams responses in real-time.
+- A smoother and more engaging user experience.
+- A flexible architecture that supports both streaming and memory.
+
+---
+Here's the documentation for **Part 8: CLI Interface**, along with an explanation of why the original trimmer was commented out:
+
+---
+
+## 🧩 Part 8: CLI Interface
+
+### 🧠 Concept Overview
+
+In this part, I built a **Command-Line Interface (CLI)** for the chatbot, allowing users to interact with it directly from the terminal. This makes the chatbot more accessible and practical for testing or lightweight usage without needing a web interface.
+
+The CLI supports:
+- Real-time input from the user.
+- Streaming responses from the assistant.
+- Persistent conversation history across turns.
+- Exit command to gracefully end the session.
+
+---
+
+### 📚 Key Terms Explained
+
+- **CLI (Command-Line Interface)**: A text-based interface where users type commands and receive output directly in the terminal.
+- **input()**: A built-in Python function that reads user input from the terminal.
+- **Streaming**: The assistant responds incrementally, improving responsiveness.
+- **Conversation Loop**: A `while` loop that continuously accepts user input until an exit condition is met.
+
+---
+
+### 📄 Code Breakdown (Line-by-Line)
+
+```python
+message_history = []
+```
+I initialized an empty list to store the conversation history.
+
+---
+
+```python
+print("\n--- ChatBot (type 'exit' to quit) ---\n")
+```
+This prints a welcome message and instructions for exiting the chatbot.
+
+---
+
+```python
+while True:
+    user_input = input("You: ")
+    if user_input.lower() in ["exit", "quit"]:
+        print("Conversation ended.")
+        break
+```
+This loop:
+- Continuously prompts the user for input.
+- Ends the session if the user types `"exit"` or `"quit"`.
+
+---
+
+```python
+message_history.append(HumanMessage(content=user_input))
+for step in app.stream({"messages": message_history, "language": language}, config):
+    pass  # Streaming handled in call_model
+```
+Each user message is added to the history and passed to the LangGraph app. The assistant's response is streamed and printed in real-time.
+
+---
+
+### 🧩 Why the Original Trimmer Was Commented Out
+
+```python
+# trimmer = trim_messages(
+#     max_tokens=100,
+#     strategy="last",
+#     token_counter=model,
+#     include_system=True,
+#     allow_partial=False,
+#     start_on="human",
+# )
+```
+
+The original trimmer was commented out because it relied on the model itself (`token_counter=model`) to count tokens. This caused issues with OpenRouter, which doesn't expose a compatible token counting method for LangChain's internal utilities.
+
+Instead, I implemented a **custom token counter** using Hugging Face's `AutoTokenizer`:
+
+```python
+from transformers import AutoTokenizer
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
+```
+
+This approach ensures accurate token counting and avoids compatibility issues with OpenRouter.
+
+---
+
+### ✅ Outcome
+
+By the end of Part 8, I had:
+- A fully functional CLI chatbot.
+- Real-time streaming responses.
+- Persistent conversation history.
+- A user-friendly interface for testing and interaction.
 
 ---
 
