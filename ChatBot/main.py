@@ -4,7 +4,7 @@ from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI  
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
-
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 # Load environment variables from .env file
 load_dotenv()
@@ -21,11 +21,20 @@ model = ChatOpenAI(
     model="mistralai/mistral-7b-instruct",  
 )
 
+# Define a prompt template with a system message
+prompt_template = ChatPromptTemplate.from_messages(
+    [
+        ("system", "You are a helpful assistant. Answer all questions to the best of your ability."),
+        MessagesPlaceholder(variable_name="messages"),
+    ]
+)
+
 # Define LangGraph workflow
 workflow = StateGraph(state_schema=MessagesState)
 
 def call_model(state: MessagesState):
-    response = model.invoke(state["messages"])
+    prompt = prompt_template.invoke(state)
+    response = model.invoke(prompt)
     return {"messages": response}
 
 workflow.add_node("model", call_model)
