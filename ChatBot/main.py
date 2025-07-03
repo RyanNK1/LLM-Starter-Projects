@@ -1,7 +1,10 @@
 import os
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import HumanMessage
 from langchain_openai import ChatOpenAI  
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.graph import START, MessagesState, StateGraph
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -17,17 +20,33 @@ model = ChatOpenAI(
     api_key=api_key,
     model="mistralai/mistral-7b-instruct",  
 )
-messages = [
-    HumanMessage(content="Hi! I'm Ryan."),
-    AIMessage(content=" Hi Ryan! It's nice to meet you. How can I assist you today? Is there something specific you would like to talk about or ask for help with? I'm here to help with answers, guidance, and helpful information on a wide range of topics. Let me know how I can help, and we can get started!"),
-    #Yes, this is the mistral response after the previous commit lol
-    HumanMessage(content="What's my name?"),
-]
-# Send a simple message to the model
-response = model.invoke(messages)
 
-# Print the model's response
-print(response.content)
+# Define LangGraph workflow
+workflow = StateGraph(state_schema=MessagesState)
+
+def call_model(state: MessagesState):
+    response = model.invoke(state["messages"])
+    return {"messages": response}
+
+workflow.add_node("model", call_model)
+workflow.add_edge(START, "model")
+
+memory = MemorySaver()
+app = workflow.compile(checkpointer=memory)
+
+# Define thread ID
+config = {"configurable": {"thread_id": "chat-thread-001"}}
+
+# First message
+input_messages = [HumanMessage(content="Hi! I'm Ryan.")]
+output = app.invoke({"messages": input_messages}, config)
+print(output["messages"][-1].content)
+
+# Follow-up message
+followup = [HumanMessage(content="What's my name?")]
+output = app.invoke({"messages": followup}, config)
+print(output["messages"][-1].content)
+
 
 
 
