@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from typing import Sequence
 from typing_extensions import Annotated, TypedDict
 
-from langchain_core.messages import HumanMessage, BaseMessage
+from langchain_core.messages import HumanMessage, BaseMessage, trim_messages
 from langchain_openai import ChatOpenAI  
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import START, StateGraph
@@ -26,7 +26,6 @@ model = ChatOpenAI(
     model="mistralai/mistral-7b-instruct",  
 )
 
-
 # Define a new state schema with messages and language
 class State(TypedDict):
     messages: Annotated[Sequence[BaseMessage], add_messages]
@@ -40,13 +39,52 @@ prompt_template = ChatPromptTemplate.from_messages(
     ]
 )
 
+# --- Original trimmer (commented out due to token counting issue) ---
+# trimmer = trim_messages(
+#     max_tokens=100,
+#     strategy="last",
+#     token_counter=model,
+#     include_system=True,
+#     allow_partial=False,
+#     start_on="human",
+# )
+
+# --- Custom token counter using transformers ---
+from transformers import AutoTokenizer
+
+tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")
+
+def count_tokens(messages: Sequence[BaseMessage]) -> int:
+    text = "\n".join([msg.content for msg in messages])
+    return len(tokenizer.encode(text))
+
+# --- New trimmer using custom token counter ---
+trimmer = trim_messages(
+    max_tokens=100,
+    strategy="last",
+    token_counter=count_tokens,
+    include_system=True,
+    allow_partial=False,
+    start_on="human",
+)
+
 # Define LangGraph workflow
 workflow = StateGraph(state_schema=State)
 
 def call_model(state: State):
-    prompt = prompt_template.invoke(state)
-    response = model.invoke(prompt)
-    return {"messages": [response]}
+    trimmed_messages = trimmer.invoke(state["messages"])
+    prompt = prompt_template.invoke({"messages": trimmed_messages, "language": state["language"]})
+    
+    # Stream response from model
+    stream = model.stream(prompt)
+    collected_chunks = []
+    print("Assistant:", end=" ", flush=True)
+    for chunk in stream:
+        print(chunk.content, end="", flush=True)
+        collected_chunks.append(chunk)
+    print()  # Newline after streaming
+
+    return {"messages": [collected_chunks[-1]]}
 
 workflow.add_node("model", call_model)
 workflow.add_edge(START, "model")
@@ -56,17 +94,18 @@ app = workflow.compile(checkpointer=memory)
 
 # Define thread ID
 config = {"configurable": {"thread_id": "chat-thread-001"}}
-language = "Spanish"
+language = "English"
 
 # First message
 input_messages = [HumanMessage(content="Hi! I'm Ryan.")]
-output = app.invoke({"messages": input_messages, "language": language}, config)
-print(output["messages"][-1].content)
+for step in app.stream({"messages": input_messages, "language": language}, config):
+    pass  # Streaming handled in call_model
 
 # Follow-up message
 followup = [HumanMessage(content="What's my name?")]
-output = app.invoke({"messages": followup, "language": language}, config)
-print(output["messages"][-1].content)
+for step in app.stream({"messages": followup, "language": language}, config):
+    pass  # Streaming handled in call_model
+
 
 
 
