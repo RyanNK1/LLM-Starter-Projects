@@ -1,9 +1,14 @@
 import os
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage
+
+from typing import Sequence
+from typing_extensions import Annotated, TypedDict
+
+from langchain_core.messages import HumanMessage, BaseMessage
 from langchain_openai import ChatOpenAI  
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import START, MessagesState, StateGraph
+from langgraph.graph import START, StateGraph
+from langgraph.graph.message import add_messages
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 # Load environment variables from .env file
@@ -21,21 +26,27 @@ model = ChatOpenAI(
     model="mistralai/mistral-7b-instruct",  
 )
 
+
+# Define a new state schema with messages and language
+class State(TypedDict):
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+    language: str
+
 # Define a prompt template with a system message
 prompt_template = ChatPromptTemplate.from_messages(
     [
-        ("system", "You are a helpful assistant. Answer all questions to the best of your ability."),
+        ("system", "You are a helpful assistant. Answer all questions to the best of your ability in {language}."),
         MessagesPlaceholder(variable_name="messages"),
     ]
 )
 
 # Define LangGraph workflow
-workflow = StateGraph(state_schema=MessagesState)
+workflow = StateGraph(state_schema=State)
 
-def call_model(state: MessagesState):
+def call_model(state: State):
     prompt = prompt_template.invoke(state)
     response = model.invoke(prompt)
-    return {"messages": response}
+    return {"messages": [response]}
 
 workflow.add_node("model", call_model)
 workflow.add_edge(START, "model")
@@ -45,15 +56,16 @@ app = workflow.compile(checkpointer=memory)
 
 # Define thread ID
 config = {"configurable": {"thread_id": "chat-thread-001"}}
+language = "Spanish"
 
 # First message
 input_messages = [HumanMessage(content="Hi! I'm Ryan.")]
-output = app.invoke({"messages": input_messages}, config)
+output = app.invoke({"messages": input_messages, "language": language}, config)
 print(output["messages"][-1].content)
 
 # Follow-up message
 followup = [HumanMessage(content="What's my name?")]
-output = app.invoke({"messages": followup}, config)
+output = app.invoke({"messages": followup, "language": language}, config)
 print(output["messages"][-1].content)
 
 
