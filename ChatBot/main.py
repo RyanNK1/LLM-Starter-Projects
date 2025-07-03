@@ -96,15 +96,20 @@ app = workflow.compile(checkpointer=memory)
 config = {"configurable": {"thread_id": "chat-thread-001"}}
 language = "English"
 
-# First message
-input_messages = [HumanMessage(content="Hi! I'm Ryan.")]
-for step in app.stream({"messages": input_messages, "language": language}, config):
-    pass  # Streaming handled in call_model
+# --- Conversation Loop ---
+message_history = []
 
-# Follow-up message
-followup = [HumanMessage(content="What's my name?")]
-for step in app.stream({"messages": followup, "language": language}, config):
-    pass  # Streaming handled in call_model
+print("\n--- ChatBot (type 'exit' to quit) ---\n")
+while True:
+    user_input = input("You: ")
+    if user_input.lower() in ["exit", "quit"]:
+        print("Conversation ended.")
+        break
+
+    message_history.append(HumanMessage(content=user_input))
+    for step in app.stream({"messages": message_history, "language": language}, config):
+        pass  # Streaming handled in call_model
+
 
 
 
