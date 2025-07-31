@@ -39,15 +39,6 @@ prompt_template = ChatPromptTemplate.from_messages(
     ]
 )
 
-# --- Original trimmer (commented out due to token counting issue) ---
-# trimmer = trim_messages(
-#     max_tokens=100,
-#     strategy="last",
-#     token_counter=model,
-#     include_system=True,
-#     allow_partial=False,
-#     start_on="human",
-# )
 
 # --- Custom token counter using transformers ---
 from transformers import AutoTokenizer
@@ -115,4 +106,13 @@ while True:
 
 
 
+# --- Original trimmer (commented out due to token counting issue) ---
+# trimmer = trim_messages(
+#     max_tokens=100,
+#     strategy="last",
+#     token_counter=model,
+#     include_system=True,
+#     allow_partial=False,
+#     start_on="human",
+# )
 
