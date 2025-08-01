@@ -21,8 +21,8 @@ os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_PROJECT"] = "LangGraph-ChatBot"
 
 # --- Streamlit App Setup ---
-st.title("🤖 LangGraph ChatBot")
-st.markdown("A conversational AI with conversation history")
+st.title("🤖 R-RAG")
+st.markdown("Conversational AI")
 
 # Initialize session state
 if "messages" not in st.session_state:
@@ -84,7 +84,7 @@ with st.sidebar:
     
     model_name = st.selectbox(
         "Model",
-        ["mistralai/mistral-7b-instruct", "anthropic/claude-2", "openai/gpt-3.5-turbo"],
+        ["mistralai/mistral-7b-instruct", "google/gemini-2.0-flash-exp:free", "deepseek/deepseek-r1-0528:free"],
         index=0,
         key="model_select"
     )
